@@ -22,13 +22,8 @@ if "products" not in st.session_state:
         "Candle", "Battery", "Matchbox", "Light Bulb"
     ]
 
-    image_sources = [
-        "https://source.unsplash.com/featured/?grocery,{}",
-        "https://source.unsplash.com/featured/?food,{}",
-        "https://source.unsplash.com/featured/?supermarket,{}",
-        "https://source.unsplash.com/featured/?fruit,{}",
-        "https://source.unsplash.com/featured/?vegetable,{}"
-    ]
+    # Static image base (guaranteed to work)
+    base_image = "https://picsum.photos/seed/{}/200/150"
 
     categories = ["Fruits", "Vegetables", "Dairy", "Snacks", "Drinks", "Bakery", "Cleaning", "Toiletries", "Other"]
 
@@ -39,7 +34,7 @@ if "products" not in st.session_state:
             "price": round(random.uniform(0.5, 20.0), 2),
             "stock": random.randint(10, 100),
             "category": random.choice(categories),
-            "image": random.choice(image_sources).format(name)
+            "image": base_image.format(name.replace(" ", "_"))
         }
         for i, name in enumerate(random.sample(product_names, 100), 1)
     ]
@@ -92,28 +87,31 @@ def total_sales():
     return sum(t["total"] for t in st.session_state.transactions)
 
 # -------------------- SIDEBAR --------------------
-st.sidebar.title("🛒 Grocery POS")
-menu = st.sidebar.radio("Navigate", ["POS", "Inventory", "Sales History", "Reports"])
+st.sidebar.title("🛒 Grocery POS System")
+menu = st.sidebar.radio("Navigation", ["POS", "Inventory", "Sales History", "Reports"])
 
 # -------------------- POS PAGE --------------------
 if menu == "POS":
     st.title("🛍️ Grocery Point of Sale")
-    col1, col2 = st.columns([2, 1])
+    col1, col2 = st.columns([2.5, 1])
 
     with col1:
-        search = st.text_input("🔍 Search Product")
+        search = st.text_input("🔍 Search for product:")
         category_filter = st.selectbox("Filter by Category", ["All"] + sorted({p["category"] for p in st.session_state.products}))
         filtered = [
             p for p in st.session_state.products
             if search.lower() in p["name"].lower() and (category_filter == "All" or p["category"] == category_filter)
         ]
 
-        cols = st.columns(3)
-        for idx, p in enumerate(filtered):
-            with cols[idx % 3]:
-                st.image(p["image"], use_container_width=True, caption=f"{p['name']}")
-                st.markdown(f"**${p['price']:.2f}** — Stock: {p['stock']}")
-                st.button("Add to Cart", key=f"add_{p['id']}", on_click=add_to_cart, args=(p,))
+        if not filtered:
+            st.warning("No products found.")
+        else:
+            cols = st.columns(4)
+            for idx, p in enumerate(filtered):
+                with cols[idx % 4]:
+                    st.image(p["image"], use_container_width=True, caption=p["name"])
+                    st.markdown(f"**${p['price']:.2f}** — Stock: {p['stock']}")
+                    st.button("Add to Cart", key=f"add_{p['id']}", on_click=add_to_cart, args=(p,))
 
     with col2:
         st.subheader("🛒 Cart")
@@ -138,16 +136,14 @@ if menu == "POS":
             if st.button("✅ Checkout"):
                 checkout(discount, cash)
 
-# -------------------- INVENTORY --------------------
+# -------------------- INVENTORY PAGE --------------------
 elif menu == "Inventory":
-    st.title("📦 Inventory")
-    st.info("Edit product stock or price (changes are temporary).")
-    for p in st.session_state.products[:50]:
-        c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
-        c1.write(p["name"])
-        p["price"] = c2.number_input("Price", value=p["price"], key=f"price_{p['id']}")
-        p["stock"] = c3.number_input("Stock", value=p["stock"], key=f"stock_{p['id']}")
-        c4.text(p["category"])
+    st.title("📦 Product Inventory")
+    st.dataframe(
+        [{"Name": p["name"], "Category": p["category"], "Price": p["price"], "Stock": p["stock"]}
+         for p in st.session_state.products],
+        use_container_width=True
+    )
 
 # -------------------- SALES HISTORY --------------------
 elif menu == "Sales History":
@@ -161,7 +157,7 @@ elif menu == "Sales History":
                     st.write(f"{item['name']} x{item['qty']} — ${item['price'] * item['qty']:.2f}")
                 st.markdown(f"**Subtotal:** ${t['subtotal']:.2f} | **Discount:** {t['discount']}% | **Change:** ${t['change']:.2f}")
 
-# -------------------- REPORTS --------------------
+# -------------------- REPORTS PAGE --------------------
 elif menu == "Reports":
     st.title("📊 Sales Reports")
     st.metric("Total Transactions", len(st.session_state.transactions))
