@@ -1,6 +1,7 @@
 import streamlit as st
 import random
 from datetime import datetime
+import pandas as pd
 
 st.set_page_config(page_title="Grocery POS System", page_icon="🛒", layout="wide")
 
@@ -22,9 +23,7 @@ if "products" not in st.session_state:
         "Candle", "Battery", "Matchbox", "Light Bulb"
     ]
 
-    # Static image base (guaranteed to work)
     base_image = "https://picsum.photos/seed/{}/200/150"
-
     categories = ["Fruits", "Vegetables", "Dairy", "Snacks", "Drinks", "Bakery", "Cleaning", "Toiletries", "Other"]
 
     st.session_state.products = [
@@ -36,7 +35,7 @@ if "products" not in st.session_state:
             "category": random.choice(categories),
             "image": base_image.format(name.replace(" ", "_"))
         }
-        for i, name in enumerate(random.sample(product_names, 100), 1)
+        for i, name in enumerate(random.choices(product_names, k=100), 1)
     ]
 
 if "cart" not in st.session_state:
@@ -139,11 +138,20 @@ if menu == "POS":
 # -------------------- INVENTORY PAGE --------------------
 elif menu == "Inventory":
     st.title("📦 Product Inventory")
-    st.dataframe(
-        [{"Name": p["name"], "Category": p["category"], "Price": p["price"], "Stock": p["stock"]}
-         for p in st.session_state.products],
-        use_container_width=True
-    )
+
+    df = pd.DataFrame(st.session_state.products)
+    df_display = df[["name", "category", "price", "stock", "image"]]
+    df_display.columns = ["Name", "Category", "Price ($)", "Stock", "Image URL"]
+
+    # Display table
+    st.dataframe(df_display, use_container_width=True)
+
+    # Optional thumbnails below table
+    st.subheader("🖼️ Product Thumbnails")
+    cols = st.columns(6)
+    for idx, p in enumerate(st.session_state.products[:30]):  # show first 30 only
+        with cols[idx % 6]:
+            st.image(p["image"], caption=p["name"], use_container_width=True)
 
 # -------------------- SALES HISTORY --------------------
 elif menu == "Sales History":
